@@ -16,9 +16,11 @@ class ExpenseFormScreen extends ConsumerStatefulWidget {
   const ExpenseFormScreen({
     super.key,
     this.expense,
+    this.initialType = TransactionType.expense,
   });
 
   final Expense? expense;
+  final TransactionType initialType;
 
   bool get isEditing => expense != null;
 
@@ -43,7 +45,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   void initState() {
     super.initState();
     final expense = widget.expense;
-    _type = expense?.type ?? TransactionType.expense;
+    _type = expense?.type ?? widget.initialType;
     _selectedDate = expense?.date ?? DateTime.now();
     _paymentMethod = expense?.paymentMethod ?? PaymentMethod.cash;
     _isRecurring = expense?.isRecurring ?? false;
@@ -71,7 +73,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isEditing ? 'Edit Expense' : 'Add Expense'),
+        title: Text(
+          widget.isEditing
+              ? 'Edit ${widget.expense!.type.label}'
+              : 'Add ${_type.label}',
+        ),
         actions: [
           if (widget.isEditing)
             IconButton(
@@ -113,13 +119,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   titleController: _titleController,
                   amountController: _amountController,
                   splitCountController: _splitCountController,
-                  type: _type,
-                  onTypeChanged: (value) {
-                    setState(() {
-                      _type = value;
-                      _selectedCategoryId = null;
-                    });
-                  },
                   categories: effectiveCategories,
                   selectedCategoryId: _selectedCategoryId,
                   onCategoryChanged: (value) {
@@ -165,8 +164,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Text(widget.isEditing
-                            ? 'Update Expense'
-                            : 'Add Expense'),
+                            ? 'Update ${widget.expense!.type.label}'
+                            : 'Add ${_type.label}'),
                   ),
                 ),
                 if (widget.isEditing) ...[

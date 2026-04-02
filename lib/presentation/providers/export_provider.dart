@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/utils/failures.dart';
 import 'dependency_providers.dart';
@@ -10,7 +11,7 @@ final exportControllerProvider =
     AsyncNotifierProvider<ExportController, String?>(ExportController.new);
 
 class ExportController extends AsyncNotifier<String?> {
-  static const _exportDirectoryName = 'exports';
+  static const _exportDirectoryName = 'vaultvibe_exports';
   static const _retentionDays = 15;
 
   @override
@@ -23,7 +24,14 @@ class ExportController extends AsyncNotifier<String?> {
       if (expenses.isEmpty) {
         throw const ValidationFailure('There are no expenses to export.');
       }
-      final csv = ref.read(exportCsvUseCaseProvider).call(expenses);
+      final categories = await ref.read(getAllCategoriesUseCaseProvider).call();
+      final categoryNamesById = {
+        for (final category in categories) category.id: category.name,
+      };
+      final csv = ref.read(exportCsvUseCaseProvider).call(
+            expenses,
+            categoryNamesById: categoryNamesById,
+          );
       final exportsDir = await _ensureExportsDirectory();
 
       await _cleanupOldExportsBestEffort(exportsDir);
@@ -49,17 +57,140 @@ class ExportController extends AsyncNotifier<String?> {
 
   Future<Directory> _ensureExportsDirectory() async {
     try {
-      final root = await getApplicationDocumentsDirectory();
+      await _ensureExportPermissions();
+      final root = await _resolveExportRootDirectory();
       final exportsDir = Directory('${root.path}/$_exportDirectoryName');
       if (!await exportsDir.exists()) {
         await exportsDir.create(recursive: true);
       }
       return exportsDir;
+    } on Failure {
+      rethrow;
     } on FileSystemException catch (error) {
-      throw LocalFailure('Unable to access local storage: ${error.message}');
+      throw LocalFailure(
+        'Unable to access export storage. Please allow storage access and try again. ${error.message}',
+      );
     } catch (_) {
-      throw const LocalFailure('Unable to access local storage for export.');
+      throw const LocalFailure(
+        'Unable to access export storage on this device.',
+      );
     }
+  }
+
+  Future<Directory> _resolveExportRootDirectory() async {
+    if (Platform.isAndroid) {
+      final publicDownloadsDirectory =
+          await _resolveAndroidDownloadsDirectory();
+      if (publicDownloadsDirectory != null) {
+        return publicDownloadsDirectory;
+      }
+
+      final directories = await getExternalStorageDirectories(
+        type: StorageDirectory.downloads,
+      );
+      final downloadsDirectory = directories != null && directories.isNotEmpty
+          ? directories.first
+          : null;
+      if (downloadsDirectory != null) {
+        return downloadsDirectory;
+      }
+
+      final externalDirectory = await getExternalStorageDirectory();
+      if (externalDirectory != null) {
+        return externalDirectory;
+      }
+    }
+
+    return getApplicationDocumentsDirectory();
+  }
+
+  Future<void> _ensureExportPermissions() async {
+    if (!Platform.isAndroid) {
+      return;
+    }
+
+    final manageStorageStatus = await Permission.manageExternalStorage.status;
+    if (manageStorageStatus.isGranted) {
+      return;
+    }
+
+    final storageStatus = await Permission.storage.status;
+    if (storageStatus.isGranted) {
+      return;
+    }
+
+    final requestedManageStorage =
+        await Permission.manageExternalStorage.request();
+    if (requestedManageStorage.isGranted) {
+      return;
+    }
+
+    final requestedStorage = await Permission.storage.request();
+    if (requestedStorage.isGranted) {
+      return;
+    }
+
+    if (requestedManageStorage.isPermanentlyDenied ||
+        requestedStorage.isPermanentlyDenied) {
+      throw const LocalFailure(
+        'Storage permission is permanently denied. Please enable file access in Settings to export CSV files.',
+      );
+    }
+
+    throw const LocalFailure(
+      'Storage permission is required to save CSV files to Downloads.',
+    );
+  }
+
+  Future<Directory?> _resolveAndroidDownloadsDirectory() async {
+    const fallbackPaths = <String>[
+      '/storage/emulated/0/Download',
+      '/sdcard/Download',
+    ];
+
+    for (final path in fallbackPaths) {
+      final directory = Directory(path);
+      if (await directory.exists()) {
+        return directory;
+      }
+    }
+
+    final scopedDirectories = await getExternalStorageDirectories(
+      type: StorageDirectory.downloads,
+    );
+    final scopedDirectory =
+        scopedDirectories != null && scopedDirectories.isNotEmpty
+            ? scopedDirectories.first
+            : null;
+    if (scopedDirectory == null) {
+      return null;
+    }
+
+    final publicPath = _derivePublicDownloadsPath(scopedDirectory.path);
+    if (publicPath == null) {
+      return null;
+    }
+
+    final publicDirectory = Directory(publicPath);
+    if (await publicDirectory.exists()) {
+      return publicDirectory;
+    }
+
+    return null;
+  }
+
+  String? _derivePublicDownloadsPath(String scopedPath) {
+    final androidFolderIndex = scopedPath.indexOf('/Android/');
+    if (androidFolderIndex == -1) {
+      return null;
+    }
+
+    final storageRoot = scopedPath.substring(0, androidFolderIndex);
+    if (storageRoot.isEmpty) {
+      return null;
+    }
+
+    return '$storageRoot/Download';
   }
 
   Future<void> _cleanupOldExportsBestEffort(Directory exportsDir) async {

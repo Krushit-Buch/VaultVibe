@@ -126,7 +126,7 @@ class DashboardScreen extends ConsumerWidget {
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
                     labelText: 'Monthly Budget',
-                    prefixText: '\$',
+                    prefixText: '₹ ',
                   ),
                   validator: (value) {
                     final parsed = double.tryParse(value ?? '');
@@ -408,6 +408,16 @@ class _CategoryBreakdownCard extends StatelessWidget {
   const _CategoryBreakdownCard({required this.breakdown});
 
   final List<CategorySpending> breakdown;
+  static const List<Color> _chartPalette = [
+    Color(0xFFE85D75),
+    Color(0xFF4F46E5),
+    Color(0xFFF59E0B),
+    Color(0xFF06B6D4),
+    Color(0xFF22C55E),
+    Color(0xFF8B5CF6),
+    Color(0xFFF97316),
+    Color(0xFF14B8A6),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -431,29 +441,28 @@ class _CategoryBreakdownCard extends StatelessWidget {
                 PieChartData(
                   centerSpaceRadius: 42,
                   sectionsSpace: 3,
-                  sections: chartItems
-                      .map(
-                        (item) => PieChartSectionData(
-                          value: item.amount,
-                          color: Color(
-                            item.category?.colorValue ??
-                                AppColors.primary.toARGB32(),
-                          ),
-                          showTitle: false,
-                          radius: 32,
-                        ),
-                      )
-                      .toList(),
+                  sections: List.generate(
+                    chartItems.length,
+                    (index) {
+                      final item = chartItems[index];
+                      return PieChartSectionData(
+                        value: item.amount,
+                        color: _colorForIndex(index),
+                        showTitle: false,
+                        radius: 32,
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            ...breakdown.map(
-              (item) {
+            ...List.generate(
+              breakdown.length,
+              (index) {
+                final item = breakdown[index];
                 final share = total == 0 ? 0 : (item.amount / total) * 100;
-                final color = Color(
-                  item.category?.colorValue ?? AppColors.primary.toARGB32(),
-                );
+                final color = _colorForIndex(index);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
@@ -491,6 +500,10 @@ class _CategoryBreakdownCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Color _colorForIndex(int index) {
+    return _chartPalette[index % _chartPalette.length];
   }
 }
 

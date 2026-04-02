@@ -1,3 +1,3 @@
-# expense_tracker
+# VaultVibe
 
-A new Flutter project.
+VaultVibe is a production-grade Flutter expense tracker.
