@@ -14,6 +14,7 @@ class AppLockScreen extends ConsumerStatefulWidget {
 }
 
 class _AppLockScreenState extends ConsumerState<AppLockScreen> {
+  static const _logoAssetPath = 'assets/app_logos/VAULVIBE3.png';
   final _pinController = TextEditingController();
   final _confirmPinController = TextEditingController();
 
@@ -27,49 +28,62 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
   @override
   Widget build(BuildContext context) {
     final lockAsync = ref.watch(appLockControllerProvider);
+    final lockContent = lockAsync.when(
+      loading: () => const AppLoadingIndicator(message: 'Securing app...'),
+      error: (error, _) => _LockContent(
+        title: 'App Lock',
+        subtitle: error.toString(),
+        pinController: _pinController,
+        confirmPinController: _confirmPinController,
+        isSetup: false,
+        onSubmit: _unlock,
+      ),
+      data: (state) => _LockContent(
+        title: state.stage == AppLockStage.setup ? 'Create PIN' : 'Unlock App',
+        subtitle: state.stage == AppLockStage.setup
+            ? 'Set a 4-digit PIN to protect your expense data.'
+            : (state.errorMessage ?? 'Enter your 4-digit PIN to continue.'),
+        pinController: _pinController,
+        confirmPinController: _confirmPinController,
+        isSetup: state.stage == AppLockStage.setup,
+        onSubmit: state.stage == AppLockStage.setup ? _setupPin : _unlock,
+      ),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: lockAsync.when(
-                    loading: () =>
-                        const AppLoadingIndicator(message: 'Securing app...'),
-                    error: (error, _) => _LockContent(
-                      title: 'App Lock',
-                      subtitle: error.toString(),
-                      pinController: _pinController,
-                      confirmPinController: _confirmPinController,
-                      isSetup: false,
-                      onSubmit: _unlock,
-                    ),
-                    data: (state) => _LockContent(
-                      title: state.stage == AppLockStage.setup
-                          ? 'Create PIN'
-                          : 'Unlock App',
-                      subtitle: state.stage == AppLockStage.setup
-                          ? 'Set a 4-digit PIN to protect your expense data.'
-                          : (state.errorMessage ??
-                              'Enter your 4-digit PIN to continue.'),
-                      pinController: _pinController,
-                      confirmPinController: _confirmPinController,
-                      isSetup: state.stage == AppLockStage.setup,
-                      onSubmit: state.stage == AppLockStage.setup
-                          ? _setupPin
-                          : _unlock,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          _logoAssetPath,
+                          width: 240,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 24),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: lockContent,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );

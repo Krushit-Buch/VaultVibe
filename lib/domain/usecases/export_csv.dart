@@ -4,27 +4,26 @@ import '../entities/expense.dart';
 class ExportCsvUseCase {
   const ExportCsvUseCase();
 
-  String call(List<Expense> expenses) {
+  String call(
+    List<Expense> expenses, {
+    Map<String, String> categoryNamesById = const {},
+  }) {
     final buffer = StringBuffer()
       ..writeln(
-        'id,title,amount,categoryId,date,type,paymentMethod,isRecurring,recurringType,lastGeneratedDate,splitCount,createdAt',
+        'Title,Category_name,Date,Payment method,Amount,Type,Recurring,Recurring_type',
       );
 
     for (final expense in expenses) {
       buffer.writeln(
         [
-          expense.id,
           expense.title,
-          expense.amount.toStringAsFixed(2),
-          expense.categoryId,
+          categoryNamesById[expense.categoryId] ?? expense.categoryId,
           expense.date.toIso8601String(),
-          expense.type.name,
           expense.paymentMethod.name,
-          expense.isRecurring,
+          expense.amount.toStringAsFixed(2),
+          expense.type.name,
+          expense.isRecurring ? 'Yes' : 'No',
           expense.recurringType.name,
-          expense.lastGeneratedDate?.toIso8601String() ?? '',
-          expense.splitCount,
-          expense.createdAt.toIso8601String(),
         ].map(_escape).join(','),
       );
     }

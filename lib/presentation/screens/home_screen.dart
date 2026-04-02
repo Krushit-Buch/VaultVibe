@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/enums/time_filter.dart';
+import '../../core/enums/transaction_type.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/date_helper.dart';
@@ -25,9 +26,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final expensesAsync = ref.watch(expensesProvider);
-    final totalIncomeAsync = ref.watch(totalIncomeProvider);
     final totalExpenseAsync = ref.watch(totalExpenseProvider);
-    final netBalanceAsync = ref.watch(netBalanceProvider);
     final selectedFilter = ref.watch(selectedTimeFilterProvider);
     final selectedDateRange = ref.watch(selectedDateRangeProvider);
     final selectedCategoryId = ref.watch(selectedCategoryFilterProvider);
@@ -88,8 +87,6 @@ class HomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                 children: [
                   _SummaryHeader(
-                    netBalanceAsync: netBalanceAsync,
-                    totalIncomeAsync: totalIncomeAsync,
                     totalExpenseAsync: totalExpenseAsync,
                   ),
                   const SizedBox(height: 20),
@@ -161,10 +158,14 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _openExpenseForm(
     BuildContext context, {
     Expense? expense,
+    TransactionType initialType = TransactionType.expense,
   }) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ExpenseFormScreen(expense: expense),
+        builder: (_) => ExpenseFormScreen(
+          expense: expense,
+          initialType: initialType,
+        ),
       ),
     );
   }
@@ -255,13 +256,9 @@ class HomeScreen extends ConsumerWidget {
 
 class _SummaryHeader extends StatelessWidget {
   const _SummaryHeader({
-    required this.netBalanceAsync,
-    required this.totalIncomeAsync,
     required this.totalExpenseAsync,
   });
 
-  final AsyncValue<double> netBalanceAsync;
-  final AsyncValue<double> totalIncomeAsync;
   final AsyncValue<double> totalExpenseAsync;
 
   @override
@@ -272,12 +269,17 @@ class _SummaryHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Balance', style: AppTextStyles.labelMedium),
+            const Text(
+              'Expense',
+              style: AppTextStyles.labelMedium,
+            ),
             const SizedBox(height: 8),
-            netBalanceAsync.when(
+            totalExpenseAsync.when(
               data: (value) => Text(
                 CurrencyFormatter.format(value),
-                style: AppTextStyles.amountMedium,
+                style: AppTextStyles.amountMedium.copyWith(
+                  color: AppColors.expense,
+                ),
               ),
               loading: () => const SizedBox(
                 height: 20,
@@ -286,70 +288,8 @@ class _SummaryHeader extends StatelessWidget {
               ),
               error: (_, __) => const Text('--'),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryMetric(
-                    label: 'Income',
-                    color: AppColors.income,
-                    value: totalIncomeAsync,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _SummaryMetric(
-                    label: 'Expense',
-                    color: AppColors.expense,
-                    value: totalExpenseAsync,
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.color,
-    required this.value,
-  });
-
-  final String label;
-  final Color color;
-  final AsyncValue<double> value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: AppTextStyles.labelMedium),
-          const SizedBox(height: 4),
-          value.when(
-            data: (amount) => Text(
-              CurrencyFormatter.format(amount),
-              style: AppTextStyles.labelLarge.copyWith(color: color),
-            ),
-            loading: () => const SizedBox(
-              height: 14,
-              width: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            error: (_, __) => const Text('--'),
-          ),
-        ],
       ),
     );
   }
@@ -404,29 +344,72 @@ class _AdvancedFiltersBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasFilters = selectedDateRange != null || selectedCategory != null;
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return
+        // Wrap(
+        //   direction: Axis.horizontal,
+        //   spacing: 5,
+        //   runSpacing: 5,
+        //   children: [
+        //     OutlinedButton.icon(
+        //       onPressed: onSelectDateRange,
+        //       icon: const Icon(Icons.date_range_outlined, size: 18),
+        //       label: Text(
+        //         selectedDateRange == null
+        //             ? 'Date Range'
+        //             : '${DateHelper.formatShort(selectedDateRange!.start)} - ${DateHelper.formatShort(selectedDateRange!.end)}',
+        //       ),
+        //     ),
+        //     OutlinedButton.icon(
+        //       onPressed: onSelectCategory,
+        //       icon: const Icon(Icons.category_outlined, size: 18),
+        //       label: Text(selectedCategory?.name ?? 'Filter By Category'),
+        //     ),
+        //     if (hasFilters)
+        //       TextButton(
+        //         onPressed: onClearFilters,
+        //         child: const Text('Clear Filters'),
+        //       ),
+        //   ],
+        // );
+        Row(
       children: [
-        OutlinedButton.icon(
-          onPressed: onSelectDateRange,
-          icon: const Icon(Icons.date_range_outlined, size: 18),
-          label: Text(
-            selectedDateRange == null
-                ? 'Date Range'
-                : '${DateHelper.formatShort(selectedDateRange!.start)} - ${DateHelper.formatShort(selectedDateRange!.end)}',
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onSelectDateRange,
+            icon: const Icon(Icons.date_range_outlined, size: 18),
+            label: Text(
+              selectedDateRange == null
+                  ? 'Date Range'
+                  : '${DateHelper.formatShort(selectedDateRange!.start)} - ${DateHelper.formatShort(selectedDateRange!.end)}',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
           ),
         ),
-        OutlinedButton.icon(
-          onPressed: onSelectCategory,
-          icon: const Icon(Icons.category_outlined, size: 18),
-          label: Text(selectedCategory?.name ?? 'Category'),
-        ),
-        if (hasFilters)
-          TextButton(
-            onPressed: onClearFilters,
-            child: const Text('Clear Filters'),
+        const SizedBox(width: 5),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: onSelectCategory,
+            icon: const Icon(Icons.filter_alt_outlined, size: 18),
+            label: Text(
+              selectedCategory?.name ?? 'Category',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
           ),
+        ),
+        if (hasFilters) ...[
+          const SizedBox(width: 5),
+          Flexible(
+            child: TextButton(
+              onPressed: onClearFilters,
+              child: const Text(
+                'Clear Filters',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ]
       ],
     );
   }

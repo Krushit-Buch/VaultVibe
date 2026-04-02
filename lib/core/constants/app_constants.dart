@@ -3,7 +3,7 @@ class AppConstants {
   AppConstants._();
 
   // App Info
-  static const String appName = 'Expense Tracker';
+  static const String appName = 'VaultVibe';
   static const String appVersion = '1.0.0';
 
   // Hive Box Names
@@ -28,8 +28,8 @@ class AppConstants {
   static const String biometricEnabledKey = 'biometric_enabled';
 
   // Default Values
-  static const String defaultCurrency = 'USD';
-  static const String defaultCurrencySymbol = '\$';
+  static const String defaultCurrency = 'INR';
+  static const String defaultCurrencySymbol = '₹';
   static const int maxRecentTransactions = 50;
 
   // Pagination

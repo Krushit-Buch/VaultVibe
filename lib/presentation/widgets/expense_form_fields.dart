@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/enums/transaction_type.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/utils/date_helper.dart';
 import '../../domain/entities/category.dart';
@@ -14,8 +13,6 @@ class ExpenseFormFields extends StatelessWidget {
     required this.titleController,
     required this.amountController,
     required this.splitCountController,
-    required this.type,
-    required this.onTypeChanged,
     required this.categories,
     required this.selectedCategoryId,
     required this.onCategoryChanged,
@@ -33,8 +30,6 @@ class ExpenseFormFields extends StatelessWidget {
   final TextEditingController titleController;
   final TextEditingController amountController;
   final TextEditingController splitCountController;
-  final TransactionType type;
-  final ValueChanged<TransactionType> onTypeChanged;
   final List<Category> categories;
   final String? selectedCategoryId;
   final ValueChanged<String?> onCategoryChanged;
@@ -59,30 +54,12 @@ class ExpenseFormFields extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SegmentedButton<TransactionType>(
-            segments: TransactionType.values
-                .map(
-                  (value) => ButtonSegment<TransactionType>(
-                    value: value,
-                    label: Text(value.label),
-                    icon: Icon(
-                      value.isExpense
-                          ? Icons.arrow_upward_rounded
-                          : Icons.arrow_downward_rounded,
-                    ),
-                  ),
-                )
-                .toList(),
-            selected: {type},
-            onSelectionChanged: (selection) => onTypeChanged(selection.first),
-          ),
-          const SizedBox(height: 16),
           TextFormField(
             controller: titleController,
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
               labelText: 'Title',
-              hintText: 'Groceries, Salary, Uber...',
+              hintText: 'Groceries, Rent, Uber...',
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
